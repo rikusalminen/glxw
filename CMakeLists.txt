@@ -5,6 +5,9 @@ project(glxw C)
 find_package(PythonInterp 2.7.0 REQUIRED)
 find_package(OpenGL)
 
+option(GLXW_USE_EGL "Use EGL" OFF)
+mark_as_advanced(GLXW_USE_EGL)
+
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 
 if(OPENGL_FOUND)
@@ -42,7 +45,7 @@ endif()
 
 find_path(GLX_INCLUDE_DIR GL/glx.h)
 mark_as_advanced(GLX_INCLUDE_DIR)
-if(GLX_INCLUDE_DIR)
+if(GLX_INCLUDE_DIR AND NOT GLXW_USE_EGL)
     include_directories(${GLX_INCLUDE_DIR})
 
     add_custom_command(
@@ -77,7 +80,7 @@ endif()
 
 find_path(GLX_INCLUDE_DIR GL/wgl.h)
 mark_as_advanced(WGL_INCLUDE_DIR)
-if(WGL_INCLUDE_DIR)
+if(WGL_INCLUDE_DIR AND NOT GLXW_USE_EGL)
     include_directories(${WGL_INCLUDE_DIR})
 
     add_custom_command(
@@ -107,5 +110,43 @@ if(WGL_INCLUDE_DIR)
         DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/include/GL/wglext.h
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
-    add_library(glxw_glx STATIC ${CMAKE_CURRENT_BINARY_DIR}/src/glxw_glx.c)
+    add_library(glxw_wgl STATIC ${CMAKE_CURRENT_BINARY_DIR}/src/glxw_wgl.c)
+endif()
+
+if(GLXW_USE_EGL)
+    add_custom_command(
+        OUTPUT
+            ${CMAKE_CURRENT_BINARY_DIR}/include/EGL/egl.h
+            ${CMAKE_CURRENT_BINARY_DIR}/include/EGL/eglext.h
+            ${CMAKE_CURRENT_BINARY_DIR}/include/EGL/eglplatform.h
+            ${CMAKE_CURRENT_BINARY_DIR}/include/KHR/khrplatform.h
+        COMMAND
+            ${PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/glxw_gen.py
+            --api egl
+            --download
+            --include ${CMAKE_CURRENT_SOURCE_DIR}/include
+            --output ${CMAKE_CURRENT_BINARY_DIR}
+        MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/glxw_gen.py
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+    add_custom_command(
+        OUTPUT
+            ${CMAKE_CURRENT_BINARY_DIR}/src/glxw_egl.c
+            ${CMAKE_CURRENT_BINARY_DIR}/include/GLXW/glxw_egl.h
+        COMMAND
+            ${PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/glxw_gen.py
+            --api egl
+            --generate
+            --output ${CMAKE_CURRENT_BINARY_DIR}
+        MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/glxw_gen.py
+        DEPENDS
+            ${CMAKE_CURRENT_BINARY_DIR}/include/EGL/egl.h
+            ${CMAKE_CURRENT_BINARY_DIR}/include/EGL/eglext.h
+            ${CMAKE_CURRENT_BINARY_DIR}/include/EGL/eglplatform.h
+            ${CMAKE_CURRENT_BINARY_DIR}/include/KHR/khrplatform.h
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+    add_library(glxw_egl STATIC ${CMAKE_CURRENT_BINARY_DIR}/src/glxw_egl.c)
 endif()

@@ -112,7 +112,7 @@ def generate_library(api, funcs, api_includes, prefix, suffix, filename):
     eglcommon = '''
 #include <EGL/egl.h>
 
-static void* open_libgl() { return 1; }
+static void* open_libgl() { return (void*)1; }
 static void close_libgl(void *libgl) { (void)libgl; }
 static void *get_proc(void *libgl, const char *proc)
 {
