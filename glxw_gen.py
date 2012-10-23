@@ -253,6 +253,8 @@ if __name__ == '__main__':
         help='Download only specified API')
     parser.add_argument('-A', '--all', action='store_true',
         help='Download and generate all APIs')
+    parser.add_argument('--no-platform', action='store_true',
+        help='Don\'t download *platform.h headers')
     args = parser.parse_args()
 
     all_apis = args.all or args.api is None
@@ -296,6 +298,8 @@ if __name__ == '__main__':
 
         ]
 
+    platform_regex = re.compile('^.*platform\.h')
+
     for (api, prefix, suffix, directory, regex, blacklist, headers) in apis:
         if not all_apis and (api != args.api and \
             not (api == 'khr' and (args.api == 'gles2' or args.api == 'gles3' or args.api == 'egl'))):
@@ -304,6 +308,9 @@ if __name__ == '__main__':
         funcs = []
 
         for (contains_funcs, filename, source_url) in headers:
+            if args.no_platform and platform_regex.match(filename) is not None:
+                continue
+
             if args.download or not args.generate:
                 filepath = os.path.join(directory, filename)
                 download(os.path.join(output_dir, 'include'), include_dir, source_url, filepath)
