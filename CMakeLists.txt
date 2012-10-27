@@ -78,11 +78,7 @@ if(GLX_INCLUDE_DIR AND NOT GLXW_USE_EGL)
     add_library(glxw_glx STATIC ${CMAKE_CURRENT_BINARY_DIR}/src/glxw_glx.c)
 endif()
 
-find_path(GLX_INCLUDE_DIR GL/wgl.h)
-mark_as_advanced(WGL_INCLUDE_DIR)
-if(WGL_INCLUDE_DIR AND NOT GLXW_USE_EGL)
-    include_directories(${WGL_INCLUDE_DIR})
-
+if(WIN32 AND NOT GLXW_USE_EGL)
     add_custom_command(
         OUTPUT
             ${CMAKE_CURRENT_BINARY_DIR}/include/GL/wglext.h

@@ -85,8 +85,11 @@ int glxwInit%(upper_suffix)sCtx(struct glxw%(suffix)s *ctx);
 
     with open(filename, 'w') as f:
         f.write(header)
-        if api == 'wgl' or api == 'glx':
+        if api == 'glx':
             f.write('#include <GL/%s.h>\n' % api)
+        if api == 'wgl':
+            f.write('#include <GL/glcorearb.h>\n')
+
         for include in api_includes:
             f.write('#include <%s>\n' % include)
         f.write(common);
