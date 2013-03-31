@@ -43,6 +43,24 @@ def parse_funcs(filename, regex_string, blacklist):
                     funcs.append(match.group(1))
         return funcs
 
+def fix_function_ptr(api, funptr):
+    # Work around a few exceptions that do not follow naming conventions
+    broken_names = {
+        'gles2': {
+            'PFNGLFRAMEBUFFERTEXTURE3DOESPROC':'PFNGLFRAMEBUFFERTEXTURE3DOES',
+            "PFNGLDRAWARRAYSINSTANCEDNVPROC":"PFNDRAWARRAYSINSTANCEDNVPROC",
+            "PFNGLDRAWELEMENTSINSTANCEDNVPROC":"PFNDRAWELEMENTSINSTANCEDNVPROC",
+            "PFNGLBLITFRAMEBUFFERNVPROC":"PFNBLITFRAMEBUFFERNVPROC",
+            "PFNGLRENDERBUFFERSTORAGEMULTISAMPLENVPROC":"PFNRENDERBUFFERSTORAGEMULTISAMPLENVPROC",
+            "PFNGLVERTEXATTRIBDIVISORNVPROC":"PFNVERTEXATTRIBDIVISORNVPROC"
+        } }
+    if api in broken_names and funptr in broken_names[api]:
+        return broken_names[api][funptr]
+    return funptr
+
+def function_ptr_name(api, func):
+    return fix_function_ptr(api, 'PFN%sPROC' % func.upper())
+
 def generate_header(api, funcs, api_includes, prefix, suffix, filename):
     print('Generating header %s' % filename)
 
@@ -94,12 +112,10 @@ int glxwInit%(upper_suffix)sCtx(struct glxw%(suffix)s *ctx);
             f.write('#include <%s>\n' % include)
         f.write(common);
 
-        if api != 'glx' and api != 'wgl' and api != 'egl':
-            f.write('void *glxwGetProcAddress(const char *proc);\n')
-
         f.write('\nstruct glxw%s {\n' % suffix)
         for func in funcs:
-            f.write('PFN%sPROC _%s;\n' % (func.upper(), func));
+            funptr = function_ptr_name(api, func)
+            f.write('%s _%s;\n' % (funptr, func));
         f.write('};\n');
 
         f.write('\nextern struct glxw%s *glxw%s;\n\n' % (suffix, suffix))
@@ -109,7 +125,7 @@ int glxwInit%(upper_suffix)sCtx(struct glxw%(suffix)s *ctx);
         f.write(footer)
 
 
-def generate_library(api, funcs, api_includes, prefix, suffix, filename):
+def generate_library(api, funcs, api_includes, prefix, suffix, filename, use_egl):
     print('Generating library source %s' % filename)
 
     eglcommon = '''
@@ -230,34 +246,45 @@ static void load_procs(void *libgl, struct glxw%(suffix)s *ctx)
     with open(filename, 'w') as f:
         f.write('#include <GLXW/glxw%s.h>\n' % suffix)
 
-        if api == 'egl' or api == 'gles2' or api == 'gles3':
+        if api == 'egl' or \
+            (use_egl is None and (api == 'gles2' or api == 'gles3')) or \
+            (use_egl is not None and use_egl):
             f.write(eglcommon)
         else:
             f.write(common)
         f.write(body)
 
         for func in funcs:
-            f.write('ctx->_%s = (PFN%sPROC)get_proc(libgl, \"%s\");\n' % (func, func.upper(), func))
+            f.write('ctx->_%s = (%s)get_proc(libgl, \"%s\");\n' % (func, function_ptr_name(api, func), func))
 
         f.write('}\n')
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description='''
+OpenGL extension loader generator.
+This script downloads OpenGL, OpenGL ES, EGL, WGL, GLX extension headers from
+official sources and generates an extension loading library.
+        ''')
     parser.add_argument('-d', '--download', action='store_true',
-        help='Only download header files from official sources')
+        help='Download only')
     parser.add_argument('-g', '--generate', action='store_true',
-        help='Generate sources')
-    parser.add_argument('-I', '--include', type=str,
+        help='Generate only')
+    parser.add_argument('-I', '--include', type=str, metavar='DIR',
         help='Look for include files in directory')
-    parser.add_argument('-o', '--output', type=str,
+    parser.add_argument('-o', '--output', type=str, metavar='DIR',
         help='Output directory')
-    parser.add_argument('-p', '--api', type=str,
+    parser.add_argument('--api', type=str, metavar='API',
         choices=['opengl', 'wgl', 'glx', 'gles2', 'gles3', 'egl', 'khr'],
         help='Download only specified API')
-    parser.add_argument('-A', '--all', action='store_true',
+    parser.add_argument('--all', action='store_true',
         help='Download and generate all APIs')
-    parser.add_argument('--with-platform', type=str,
+    parser.add_argument('--with-platform', type=str, metavar='DIR',
         help='Copy platform headers from here instead of downloading them')
+    parser.add_argument('--use-egl', action='store_true', default=None,
+        help='Use eglGetProcAddress')
+    parser.add_argument('--no-egl', dest='use_egl', action='store_false', default=None,
+        help='Do not use eglGetProcAddress')
     args = parser.parse_args()
 
     all_apis = args.all or args.api is None
@@ -331,7 +358,7 @@ if __name__ == '__main__':
                 source_file = os.path.join(output_dir, 'src', 'glxw%s.c' % suffix)
 
                 generate_header(api, funcs, api_includes, prefix, suffix, include_file)
-                generate_library(api, funcs, api_includes, prefix, suffix, source_file)
+                generate_library(api, funcs, api_includes, prefix, suffix, source_file, args.use_egl)
 
 
 
