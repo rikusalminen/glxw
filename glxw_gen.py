@@ -206,7 +206,7 @@ static void *get_proc(void *libgl, const char *proc)
 
     body = '''
 static void load_procs(void *libgl, struct glxw%(suffix)s *ctx);
-struct glxw%(suffix)s *glxw%(suffix)s;
+struct glxw%(suffix)s *glxw%(suffix)s = 0;
 
 int glxwInit%(upper_suffix)sCtx(struct glxw%(suffix)s *ctx)
 {
@@ -223,7 +223,7 @@ int glxwInit%(upper_suffix)sCtx(struct glxw%(suffix)s *ctx)
 int glxwInit%(upper_suffix)s(void)
 {
     static struct glxw%(suffix)s ctx;
-    if(glxwInit%(upper_suffix)sCtx(&ctx) == 0)
+    if(glxw%(suffix)s || glxwInit%(upper_suffix)sCtx(&ctx) == 0)
     {
         glxw%(suffix)s = &ctx;
         return 0;
