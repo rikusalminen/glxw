@@ -339,7 +339,9 @@ official sources and generates an extension loading library.
 
         for (contains_funcs, filename, source_url) in headers:
             cur_include_dir = include_dir
-            if args.with_platform != "" and platform_regex.match(filename) is not None:
+            if args.with_platform is not None and platform_regex.match(filename) is not None:
+                if len(args.with_platform.strip()) == 0:
+                    continue
                 cur_include_dir = args.with_platform
 
             if args.download or not args.generate:
