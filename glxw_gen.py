@@ -43,24 +43,6 @@ def parse_funcs(filename, regex_string, blacklist):
                     funcs.append(match.group(1))
         return funcs
 
-def fix_function_ptr(api, funptr):
-    # Work around a few exceptions that do not follow naming conventions
-    broken_names = {
-        'gles2': {
-            'PFNGLFRAMEBUFFERTEXTURE3DOESPROC':'PFNGLFRAMEBUFFERTEXTURE3DOES',
-            "PFNGLDRAWARRAYSINSTANCEDNVPROC":"PFNDRAWARRAYSINSTANCEDNVPROC",
-            "PFNGLDRAWELEMENTSINSTANCEDNVPROC":"PFNDRAWELEMENTSINSTANCEDNVPROC",
-            "PFNGLBLITFRAMEBUFFERNVPROC":"PFNBLITFRAMEBUFFERNVPROC",
-            "PFNGLRENDERBUFFERSTORAGEMULTISAMPLENVPROC":"PFNRENDERBUFFERSTORAGEMULTISAMPLENVPROC",
-            "PFNGLVERTEXATTRIBDIVISORNVPROC":"PFNVERTEXATTRIBDIVISORNVPROC"
-        } }
-    if api in broken_names and funptr in broken_names[api]:
-        return broken_names[api][funptr]
-    return funptr
-
-def function_ptr_name(api, func):
-    return fix_function_ptr(api, 'PFN%sPROC' % func.upper())
-
 def generate_header(api, funcs, api_includes, prefix, suffix, filename):
     print('Generating header %s' % filename)
 
@@ -114,7 +96,7 @@ int glxwInit%(upper_suffix)sCtx(struct glxw%(suffix)s *ctx);
 
         f.write('\nstruct glxw%s {\n' % suffix)
         for func in funcs:
-            funptr = function_ptr_name(api, func)
+            funptr = ('PFN%sPROC' % func.upper())
             f.write('%s _%s;\n' % (funptr, func));
         f.write('};\n');
 
@@ -255,7 +237,7 @@ static void load_procs(void *libgl, struct glxw%(suffix)s *ctx)
         f.write(body)
 
         for func in funcs:
-            f.write('ctx->_%s = (%s)get_proc(libgl, \"%s\");\n' % (func, function_ptr_name(api, func), func))
+            f.write('ctx->_%s = (%s)get_proc(libgl, \"%s\");\n' % (func, ('PFN%sPROC' % func.upper()), func))
 
         f.write('}\n')
 
