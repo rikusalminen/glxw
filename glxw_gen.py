@@ -3,28 +3,30 @@
 import argparse
 import os
 import re
-import urllib2
+import sys
+if sys.version_info < (3, 0):
+    from urllib import urlretrieve
+else:
+    from urllib.request import urlretrieve
+
 
 def download(output_dir, include_dir, source_url, filename):
     full_filename = os.path.join(output_dir, filename)
     if os.path.exists(full_filename):
         return
-    lines = []
 
     include_file = os.path.join(include_dir, filename) if include_dir is not None else None
     if include_dir is not None and os.path.exists(include_file):
         print('Copying %s to %s' % (include_file, full_filename))
-        with open(include_file, 'r') as f:
-            lines = f.readlines()
+        source = 'file://' + os.path.abspath(include_file) # file:// is required for python 3
     else:
         print('Downloading %s from %s to %s' % (filename, source_url, full_filename))
-        lines = urllib2.urlopen(source_url).readlines()
+        source = source_url
 
     dirname = os.path.dirname(full_filename)
     if not os.path.exists(dirname):
         os.makedirs(dirname)
-    with open(full_filename, 'w') as f:
-        f.writelines(lines)
+    urlretrieve(source, full_filename)
 
 def parse_funcs(filename, regex_string, blacklist):
     print('Parsing header %s' % os.path.basename(filename))
